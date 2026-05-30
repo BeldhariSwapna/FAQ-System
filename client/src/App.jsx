@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UserPage from './pages/UserPage';
 import QueryPage from './pages/QueryPage';
+import QueriesListPage from './pages/QueriesListPage';
 import './styles/auth.css';
 
 export default function App() {
@@ -45,6 +46,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <QueryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/queries"
+            element={
+              <ProtectedRoute>
+                <QueriesListPage />
               </ProtectedRoute>
             }
           />

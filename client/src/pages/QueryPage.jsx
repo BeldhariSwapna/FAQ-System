@@ -59,7 +59,7 @@ export default function QueryPage() {
           </svg>
           <h2 style={{ fontSize: 22, marginBottom: 8 }}>Query Submitted</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 20 }}>We'll review your question and get back to you soon.</p>
-          <button onClick={() => navigate('/dashboard', { replace: true })} style={{
+          <button onClick={() => navigate('/user', { replace: true })} style={{
             padding: '10px 24px', border: 'none', borderRadius: 'var(--radius-md)',
             background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit'

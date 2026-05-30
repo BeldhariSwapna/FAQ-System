@@ -187,10 +187,15 @@ export default function UserPage() {
       }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>Samagama FAQs</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ cursor: 'pointer' }}>
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
+          <button onClick={() => navigate('/queries')} style={{
+            padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+            fontSize: 13, background: 'transparent', color: 'var(--text-secondary)',
+            cursor: 'pointer', fontFamily: 'inherit'
+          }}
+            onMouseOver={e => { e.currentTarget.style.background = 'var(--accent-light)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
+            View Queries
+          </button>
           <div style={{
             width: 34, height: 34, borderRadius: '50%',
             background: 'var(--accent)', display: 'flex', alignItems: 'center',

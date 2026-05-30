@@ -64,6 +64,23 @@ exports.getAllQueries = async (req, res, next) => {
   }
 };
 
+exports.resolveQuery = async (req, res, next) => {
+  try {
+    const query = await Query.findById(req.params.id);
+    if (!query) {
+      return next(new AppError('Query not found', 404));
+    }
+
+    query.status = 'resolved';
+    query.resolvedAt = new Date();
+    await query.save();
+
+    res.json({ success: true, query });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.respondToQuery = async (req, res, next) => {
   try {
     const { response, status } = req.body;
