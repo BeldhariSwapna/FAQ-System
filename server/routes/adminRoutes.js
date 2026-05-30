@@ -6,6 +6,7 @@ const router = Router();
 
 router.use(authenticateUser, authorizeRoles('super_admin', 'admin'));
 
+router.get('/insights', adminController.getInsights);
 router.get('/users', adminController.getUsers);
 router.get('/users/:id', adminController.getUserById);
 router.patch('/users/:id/role', authorizeRoles('super_admin', 'admin'), adminController.updateUserRole);

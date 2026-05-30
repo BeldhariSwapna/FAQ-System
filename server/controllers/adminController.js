@@ -1,4 +1,8 @@
 const User = require('../models/User');
+const Query = require('../models/Query');
+const Faq = require('../models/Faq');
+const Query = require('../models/Query');
+const Faq = require('../models/Faq');
 const { AppError } = require('../middleware/errorHandler');
 
 exports.getUsers = async (req, res, next) => {
@@ -139,6 +143,87 @@ exports.deleteUser = async (req, res, next) => {
     await User.findByIdAndDelete(req.params.id);
 
     res.json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getInsights = async (req, res, next) => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const allFaqs = await Faq.find({ isPublished: true }).select('question category views').lean();
+    const faqWordSet = new Set();
+    for (const faq of allFaqs) {
+      for (const w of faq.question.toLowerCase().split(/\s+/).filter(w => w.length > 4)) {
+        faqWordSet.add(w);
+      }
+    }
+
+    const allQueries = await Query.find({ status: { $ne: 'closed' } }).populate('user', 'name email').lean();
+    const queriesThisWeek = await Query.find({ createdAt: { $gte: sevenDaysAgo } }).populate('user', 'name email').lean();
+
+    const categoryCounts = {};
+    const tagCounts = {};
+    const userCounts = {};
+    const queryWordCounts = {};
+
+    for (const q of allQueries) {
+      const cat = q.category || 'general';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+
+      for (const tag of (q.tags || [])) tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+
+      for (const w of q.question.toLowerCase().split(/\s+/).filter(w => w.length > 4)) {
+        queryWordCounts[w] = (queryWordCounts[w] || 0) + 1;
+      }
+    }
+
+    for (const q of queriesThisWeek) {
+      const uid = q.user?._id?.toString() || 'unknown';
+      if (!userCounts[uid]) {
+        userCounts[uid] = { count: 0, name: q.isAnonymous ? 'Anonymous' : q.user?.name || 'Unknown' };
+      }
+      userCounts[uid].count++;
+    }
+
+    const topicClusters = Object.entries(categoryCounts)
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const failingFaqs = Object.entries(queryWordCounts)
+      .filter(([word]) => faqWordSet.has(word))
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const knowledgeGaps = Object.entries(queryWordCounts)
+      .filter(([word]) => !faqWordSet.has(word))
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const activeUsers = Object.values(userCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({
+      success: true,
+      insights: {
+        topicClusters,
+        failingFaqs,
+        activeUsers,
+        knowledgeGaps,
+        totals: {
+          totalFaqs: allFaqs.length,
+          totalOpenQueries: allQueries.length,
+          queriesThisWeek: queriesThisWeek.length,
+          escalatedQueries: allQueries.filter(q => q.escalated).length,
+          unresolvedQueries: allQueries.filter(q => q.status === 'open' || q.status === 'in_progress').length,
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }

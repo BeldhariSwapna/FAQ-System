@@ -17,6 +17,7 @@ const queryRoutes = require('./routes/queryRoutes');
 const internshipRoutes = require('./routes/internshipRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const { indexAllFaqs } = require('./services/searchService');
+const { runEscalation } = require('./controllers/queryController');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -100,6 +101,9 @@ const startServer = async () => {
     indexAllFaqs().then(count => {
       if (count > 0) console.log(`Search: Indexed ${count} FAQs for semantic search`);
     }).catch(() => {});
+    runEscalation();
+    setInterval(runEscalation, 60 * 60 * 1000);
+
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });

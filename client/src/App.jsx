@@ -8,6 +8,7 @@ import RegisterPage from './pages/RegisterPage';
 import UserPage from './pages/UserPage';
 import QueryPage from './pages/QueryPage';
 import QueriesListPage from './pages/QueriesListPage';
+import AdminDashboard from './pages/AdminDashboard';
 import './styles/auth.css';
 
 export default function App() {
@@ -54,6 +55,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <QueriesListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole={['admin', 'super_admin']}>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />
