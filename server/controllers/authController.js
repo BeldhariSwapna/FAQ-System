@@ -21,12 +21,12 @@ const signRefreshToken = (userId) => {
   });
 };
 
-const sendTokens = (user, statusCode, res) => {
+const sendTokens = async (user, statusCode, res) => {
   const accessToken = signAccessToken(user._id);
   const refreshToken = signRefreshToken(user._id);
 
   user.refreshToken = refreshToken;
-  user.save();
+  await user.save();
 
   res.status(statusCode).json({
     success: true,
@@ -59,7 +59,7 @@ exports.register = async (req, res, next) => {
       isVerified: true,
     });
 
-    sendTokens(user, 201, res);
+    await sendTokens(user, 201, res);
   } catch (err) {
     next(err);
   }
@@ -92,7 +92,7 @@ exports.login = async (req, res, next) => {
     user.resetLoginAttempts();
     await user.save();
 
-    sendTokens(user, 200, res);
+    await sendTokens(user, 200, res);
   } catch (err) {
     next(err);
   }
@@ -105,13 +105,32 @@ exports.googleAuth = async (req, res, next) => {
       return next(new AppError('Google credential is required', 400));
     }
 
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyErr) {
+      console.error('Google token verification failed:', verifyErr.message);
+      if (verifyErr.message?.includes('audience')) {
+        return next(new AppError('Google sign-in configuration error (audience mismatch). Contact support.', 401));
+      }
+      if (verifyErr.message?.includes('expired') || verifyErr.message?.includes('too late')) {
+        return next(new AppError('Google sign-in expired. Please try again.', 401));
+      }
+      if (verifyErr.message?.includes('token')) {
+        return next(new AppError('Invalid Google sign-in. Please try again.', 401));
+      }
+      return next(new AppError('Google sign-in verification failed. Please try again.', 401));
+    }
 
     const payload = ticket.getPayload();
     const { sub: googleId, email, name } = payload;
+
+    if (!email) {
+      return next(new AppError('Google account has no email associated.', 400));
+    }
 
     let user = await User.findOne({
       $or: [{ googleId }, { email: email.toLowerCase() }],
@@ -128,7 +147,7 @@ exports.googleAuth = async (req, res, next) => {
       }
     } else {
       user = await User.create({
-        name,
+        name: name || email.split('@')[0],
         email: email.toLowerCase(),
         googleId,
         isVerified: true,
@@ -136,8 +155,12 @@ exports.googleAuth = async (req, res, next) => {
       });
     }
 
-    sendTokens(user, 200, res);
+    await sendTokens(user, 200, res);
   } catch (err) {
+    if (err.name === 'MongooseError' || err.name === 'ValidationError') {
+      console.error('Google auth DB error:', err.message);
+      return next(new AppError('Account creation failed. This email may already be registered.', 409));
+    }
     next(err);
   }
 };
