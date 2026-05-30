@@ -32,6 +32,14 @@ const querySchema = new mongoose.Schema(
       default: '',
     },
     resolvedAt: Date,
+    isAnonymous: {
+      type: Boolean,
+      default: false,
+    },
+    notifyOnResponse: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

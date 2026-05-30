@@ -1,9 +1,10 @@
 const Query = require('../models/Query');
 const { AppError } = require('../middleware/errorHandler');
+const { searchSimilar, getSuggestions } = require('../services/searchService');
 
 exports.createQuery = async (req, res, next) => {
   try {
-    const { question, category, description } = req.body;
+    const { question, category, description, isAnonymous, notifyOnResponse } = req.body;
     if (!question || !question.trim()) {
       return next(new AppError('Question is required', 400));
     }
@@ -13,6 +14,8 @@ exports.createQuery = async (req, res, next) => {
       question: question.trim(),
       category: (category || 'general').toLowerCase(),
       description: description || '',
+      isAnonymous: !!isAnonymous,
+      notifyOnResponse: !!notifyOnResponse,
     });
 
     res.status(201).json({ success: true, query });
@@ -48,10 +51,18 @@ exports.getAllQueries = async (req, res, next) => {
       Query.countDocuments(filter),
     ]);
 
+    const mapped = queries.map(q => {
+      const obj = q.toObject();
+      if (q.isAnonymous) {
+        obj.user = { name: 'Anonymous', email: '' };
+      }
+      return obj;
+    });
+
     res.json({
       success: true,
-      count: queries.length,
-      queries,
+      count: mapped.length,
+      queries: mapped,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -59,6 +70,59 @@ exports.getAllQueries = async (req, res, next) => {
         pages: Math.ceil(total / parseInt(limit)),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.checkDuplicates = async (req, res, next) => {
+  try {
+    const { question } = req.body;
+    if (!question || question.trim().length < 3) {
+      return res.json({ success: true, duplicates: [] });
+    }
+
+    const similarFaqs = await searchSimilar(question, 5);
+
+    const existingQueries = await Query.find({
+      question: { $regex: question.trim().split(' ').filter(w => w.length > 3).join('|'), $options: 'i' },
+      status: { $ne: 'closed' },
+    }).select('question category status createdAt').limit(5);
+
+    const duplicates = [
+      ...similarFaqs.filter(f => f.score > 0.6).map(f => ({
+        type: 'faq',
+        question: f.question,
+        category: f.category,
+        score: f.score,
+      })),
+      ...existingQueries.map(q => ({
+        type: 'existing_query',
+        question: q.question,
+        category: q.category,
+        status: q.status,
+      })),
+    ];
+
+    res.json({ success: true, duplicates });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.suggestCategory = async (req, res, next) => {
+  try {
+    const { question } = req.body;
+    if (!question || question.trim().length < 3) {
+      return res.json({ success: true, category: 'general' });
+    }
+
+    const similar = await searchSimilar(question, 3);
+    if (similar.length > 0 && similar[0].score > 0.5) {
+      return res.json({ success: true, category: similar[0].category || 'general', confidence: similar[0].score });
+    }
+
+    res.json({ success: true, category: 'general', confidence: 0 });
   } catch (err) {
     next(err);
   }
